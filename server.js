@@ -3,8 +3,9 @@ var express = require('express');
 var app = express();
 var bodyParser = require('body-parser');
 var jwt = require('jsonwebtoken');
-var formidable = require('formidable'); 
+
 var http = require('http');
+//const fileUpload = require('express-fileupload');
 
 // configure app to use bodyParser()
 // this will let us get the data from a POST
@@ -15,23 +16,11 @@ var router = express.Router();
 var port = process.env.PORT || 8081;
 
 
-var http = require('http');
-
-http.createServer(function (req, res) {
-  res.writeHead(200, {'Content-Type': 'text/html'});
-  res.write('<form action="fileupload" method="post" enctype="multipart/form-data">');
-  res.write('<input type="file" name="filetoupload"><br>');
-  res.write('<input type="submit">');
-  res.write('</form>');
-  return res.end();
-}).listen(8080); 
-
-
 app.use(function(request, result, next) {
     result.header("Access-Control-Allow-Origin", "http://localhost");
     result.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
     result.header('Access-Control-Allow-Credentials', 'true');
-    result.header('Access-Control-Allow-Method', 'GET, POST, PUT, DELETE')
+    result.header('Access-Control-Allow-Method', 'GET, POST, PUT, DELETE');
 next();
 });
 
@@ -42,9 +31,11 @@ const sequelize = new Sequelize('AOS', 'root', '', {
     dialect: 'mysql'
 });
 
-router.route('/user/:idUser/photos')
+
+// Non fonctionnel pour le moment
+router.route('/user/:userid/photos')
     .get(function(req, res) {
-        sequelize.query('SELECT * FROM pictures WHERE id IN (SELECT idTopic FROM topicuser WHERE idUser ='+req.params.idUser+')',
+        sequelize.query('SELECT * FROM photos WHERE photoid IN (SELECT id FROM user WHERE userid ="+req.params.userid+")',
             { type: sequelize.QueryTypes.SELECT})
             .then(result => {
                 res.json(result);
@@ -55,28 +46,33 @@ router.route('/user/:idUser/photos')
 //Requêtes d'authentification 
 router.route('/logout')
     .post(function(request,result){
-        db.User.findOne({
-            where: {token: request.body.token}
-        }).then(function(){
-            db.User.update({
-                token: ''
-            }, { where: {token: request.body.token}
-            });
+        sequelize.query('SELECT * from user WHERE token="'+request.body.token+'"')
+.then(function(){
+                sequelize.query('UPDATE user SET token = NULL WHERE login = "'+request.body.name+'" AND password = "'+request.body.password+'"');
             result.json({ token: '' });
         });
 });
 
 router.route('/login')
     .post(function(request,result){
-        db.User.findOne({
-            where: {login: request.body.login, password: request.body.password},
-        }).then(function(){
-            var token = jwt.sign({login: request.body.login, password: request.body.password}, 'shhhh');
-                db.User.update({
-                token: token
-            }, { where: {login: request.body.login, password: request.body.password}
-            });
+        sequelize.query('SELECT * FROM user WHERE login = " '+request.body.name+' " AND password = " '+request.body.password+' " ')       
+        .then(function(){
+            var token = jwt.sign({login: request.body.name, password: request.body.password}, 'shhhh');    
+                sequelize.query('UPDATE user SET token = "'+token+'" WHERE login ="'+request.body.name+'" AND password = "'+request.body.password+'"');
             result.json({ token: token });
         });
-
     });
+  
+    
+    // Requête à ajouter pour l'inscription mais manuelle pour l'instant : router.route('/signup')
+    
+    
+    // Non fonctionnel pour le moment
+    //router.route('/user/:userid/photos/:photoid')
+    //.delete(function(req, res) {
+    //    sequelize.query("DELETE * FROM photo WHERE photoid = "+req.params.photoid+" AND userid = "+req.params.userid",
+    //        { type: sequelize.QueryTypes.SELECT});
+//});
+
+app.use('', router);
+var server = app.listen(port);
