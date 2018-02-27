@@ -31,11 +31,20 @@ const sequelize = new Sequelize('AOS', 'root', '', {
     dialect: 'mysql'
 });
 
+router.route('/user')
+    .post(function(req,res){
+        sequelize.query('SELECT * FROM user WHERE token = "'+req.body.token+'" LIMIT 1;')       
+        .then(result => {
+                res.json(result[0][0]);
+            });
+    });
+
+
 
 // Non fonctionnel pour le moment
 router.route('/user/:userid/photos')
     .get(function(req, res) {
-        sequelize.query('SELECT * FROM photos WHERE photoid IN (SELECT id FROM user WHERE userid ="+req.params.userid+")',
+        sequelize.query('SELECT * FROM photos WHERE userid = "'+req.param.userid+'"',
             { type: sequelize.QueryTypes.SELECT})
             .then(result => {
                 res.json(result);
@@ -44,12 +53,12 @@ router.route('/user/:userid/photos')
 
 
 //Requêtes d'authentification 
-router.route('/logout')
-    .post(function(request,result){
-        sequelize.query('SELECT * from user WHERE token="'+request.body.token+'"')
+router.route('/logout/:userid')
+    .delete(function(request,result){
+        sequelize.query('SELECT * from user WHERE user='+request.param.userid)
 .then(function(){
-                sequelize.query('UPDATE user SET token = NULL WHERE login = "'+request.body.name+'" AND password = "'+request.body.password+'"');
-            result.json({ token: '' });
+                sequelize.query('UPDATE user SET token = NULL WHERE user='+request.param.userid);
+       
         });
 });
 
@@ -57,6 +66,16 @@ router.route('/login')
     .post(function(request,result){
         sequelize.query('SELECT * FROM user WHERE login = " '+request.body.name+' " AND password = " '+request.body.password+' " ')       
         .then(function(){
+            var token = jwt.sign({login: request.body.name, password: request.body.password}, 'shhhh');    
+                sequelize.query('UPDATE user SET token = "'+token+'" WHERE login ="'+request.body.name+'" AND password = "'+request.body.password+'"');
+            result.json({ token: token });
+        });
+    });
+    
+router.route('/register')
+    .put(function(request,result){
+        sequelize.query('INSERT INTO user VALUES (,"","'+request.body.name+'", " '+request.body.password+' ")')       
+        .then(result => {
             var token = jwt.sign({login: request.body.name, password: request.body.password}, 'shhhh');    
                 sequelize.query('UPDATE user SET token = "'+token+'" WHERE login ="'+request.body.name+'" AND password = "'+request.body.password+'"');
             result.json({ token: token });
